@@ -1,0 +1,19 @@
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: npm install
+    displayName: "install dependencies"
+  - script: npm run test
+    displayName: "run tests"
+  - task: PublishCodeCoverageResults@1
+    inputs:
+      codeCoverageTool: "Cobertura"
+      summaryFileLocation: "coverage/cobertura-coverage.xml"
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: "coverage"
+      ArtifactName: "coverage"

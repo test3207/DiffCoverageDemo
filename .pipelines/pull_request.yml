@@ -1,0 +1,44 @@
+# run unit test, download code coverage report from main branch's artifact, and compare the diff coverage
+# using pycobertura (https://github.com/aconrad/pycobertura)
+
+trigger:
+  - pull_request
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - script: npm install
+    displayName: "install dependencies"
+  - script: npm run test
+    displayName: "run tests"
+  - checkout: self
+  - checkout: main
+  - task: DownloadBuildArtifacts@0
+    inputs:
+      buildType: "specific"
+      project: "$(System.TeamProjectId)"
+      pipeline: "main"
+      buildVersionToDownload: "latest"
+      downloadType: "single"
+      artifactName: "coverage"
+      targetPath: "$(Pipeline.Workspace)/main"
+  - script: |
+      pip install pycobertura
+      pycobertura diff-coverage \
+        --base coverage/cobertura-coverage.xml \
+        --head main/coverage/cobertura-coverage.xml
+    displayName: "compare diff coverage"
+  # check overall diff coverage, fail if diff coverage is less than 80%
+  - script: |
+      diff_coverage_string=$(pycobertura diff-coverage \
+        --base coverage/cobertura-coverage.xml \
+        --head main/coverage/cobertura-coverage.xml \
+        --format text)
+      echo "$diff_coverage_string"
+      diff_coverage=$(echo "$diff_coverage_string" | grep "Overall diff coverage" | awk '{print $4}' | sed 's/%//')
+      if [ "$diff_coverage" -lt 80 ]; then
+        echo "Diff coverage is less than 80%, failing the build"
+        exit 1
+      fi
+    displayName: "check diff coverage"
