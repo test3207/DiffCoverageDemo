@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          dir: current
+          path: current
       - name: Install dependencies
         run: npm install
         working-directory: current
