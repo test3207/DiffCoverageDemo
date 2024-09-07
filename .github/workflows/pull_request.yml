@@ -82,11 +82,14 @@ jobs:
         run: |
           Stmt=$(jq -r '.total.Stmts' diff-coverage.json)
           Miss=$(jq -r '.total.Miss' diff-coverage.json)
-          if [ $Stmt -lt 0 ] || [ $Miss -lt 0 ]; then
+          Stmt=$(echo $Stmt | sed 's/+//')
+          Miss=$(echo $Miss | sed 's/+//')
+
+          if [ "$Stmt" -lt 0 ] || [ "$Miss" -lt 0 ]; then
             echo "ok"
           else
             DiffCoverage=$(echo "scale=2; ($Stmt - $Miss) / $Stmt" | bc)
-            if [ $(echo "$DiffCoverage < 0.8" | bc) -eq 1 ]; then
+            if [ "$(echo "$DiffCoverage < 0.8" | bc)" -eq 1 ]; then
               echo "Diff coverage is less than 80%."
               exit 1
             else
