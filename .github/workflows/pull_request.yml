@@ -19,10 +19,17 @@ jobs:
         run: |
           mkdir temp
           git archive main | tar -x -C temp
-      - name: Download code coverage report
-        run: download-artifact@v4
+      - name: Get the latest run_id of the main branch's code coverage
+        id: get_run_id
+        run: |
+          run_id=$(curl -s -H "Accept: application/vnd.github.v3+json" -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs?branch=main | jq -r '.workflow_runs[0].id')
+          echo "::set-output name=run_id::$run_id"
+      - name: Download code coverage report from main branch
+        uses: actions/download-artifact@v4
         with:
           name: coverage
+          run_id: ${{ steps.get_run_id.outputs.run_id }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Put main branch's code coverage report to temp folder
         run: cp coverage/cobertura-coverage.xml temp/coverage/cobertura-coverage.xml
 
