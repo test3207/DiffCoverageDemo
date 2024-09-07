@@ -40,7 +40,7 @@ jobs:
           run-id: ${{ steps.get_run_id.outputs.run_id }}
           github-token: ${{ github.token }}
       - name: Put main branch's code coverage report to main folder
-        run: cp cobertura-coverage.xml main/coverage/cobertura-coverage.xml
+        run: mkdir main/coverage && mv cobertura-coverage.xml main/coverage/cobertura-coverage.xml
 
       - name: Install pycobertura
         run: pip install pycobertura
