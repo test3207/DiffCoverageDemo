@@ -15,10 +15,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Put main branch's files to temp folder without compressing
-        run: |
-          mkdir temp
-          git archive main | tar -x -C temp
+        with:
+          dir: current
+      - name: Install dependencies
+        run: npm install
+        working-directory: current
+      - name: Run tests
+        run: npm run test
+        working-directory: current
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main
       - name: Get the latest run_id of the main branch's code coverage
         id: get_run_id
         run: |
@@ -29,20 +38,15 @@ jobs:
         with:
           name: coverage
           run_id: ${{ steps.get_run_id.outputs.run_id }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Put main branch's code coverage report to temp folder
-        run: cp coverage/cobertura-coverage.xml temp/coverage/cobertura-coverage.xml
-
-      - name: Install dependencies
-        run: npm install
-      - name: Run tests
-        run: npm run test
+          github_token: ${{ github.token }}
+      - name: Put main branch's code coverage report to main folder
+        run: cp coverage/cobertura-coverage.xml main/coverage/cobertura-coverage.xml
 
       - name: Install pycobertura
         run: pip install pycobertura
       - name: Generate diff coverage file
         run: |
-          pycobertura diff temp/coverage/cobertura-coverage.xml coverage/cobertura-coverage.xml --source1 temp --source2 . --format markdown --output diff-coverage.md
+          pycobertura diff main/coverage/cobertura-coverage.xml current/coverage/cobertura-coverage.xml --source1 main --source2 current --format markdown --output diff-coverage.md
       - name: Publish diff coverage
         uses: actions/upload-artifact@v4
         with:
