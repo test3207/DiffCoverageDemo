@@ -32,13 +32,13 @@ jobs:
         id: get_run_id
         run: |
           run_id=$(curl -s -H "Accept: application/vnd.github.v3+json" -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs?branch=main | jq -r '.workflow_runs[0].id')
-          echo "::set-output name=run_id::$run_id"
+          echo run_id=$run_id >> $GITHUB_OUTPUT
       - name: Download code coverage report from main branch
         uses: actions/download-artifact@v4
         with:
           name: coverage
-          run_id: ${{ steps.get_run_id.outputs.run_id }}
-          github_token: ${{ github.token }}
+          run-id: ${{ steps.get_run_id.outputs.run_id }}
+          github-token: ${{ github.token }}
       - name: Put main branch's code coverage report to main folder
         run: cp coverage/cobertura-coverage.xml main/coverage/cobertura-coverage.xml
 
