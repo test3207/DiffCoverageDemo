@@ -54,6 +54,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: diff-coverage
+          path: diff-coverage.md
       - name: Check diff coverage.
         run: |
           diff_coverage=$(awk '/Overall coverage/ {print $3}' diff-coverage.md)
