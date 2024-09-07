@@ -39,6 +39,9 @@ jobs:
           name: coverage
           run-id: ${{ steps.get_run_id.outputs.run_id }}
           github-token: ${{ github.token }}
+      - name: Show the downloaded code coverage report
+        run: ls
+      - run: ls coverage
       - name: Put main branch's code coverage report to main folder
         run: cp coverage/cobertura-coverage.xml main/coverage/cobertura-coverage.xml
 
