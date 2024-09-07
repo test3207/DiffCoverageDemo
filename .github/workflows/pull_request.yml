@@ -92,6 +92,7 @@ jobs:
             DiffCoverage=$(echo "scale=2; ($Stmt - $Miss) / $Stmt" | bc)
             if [ "$(echo "$DiffCoverage < 0.8" | bc)" -eq 1 ]; then
               echo "Diff coverage is less than 80%."
+              echo "Current diff coverage is $DiffCoverage."
               exit 1
             else
               echo "Diff coverage is greater than 80%."
