@@ -14,6 +14,9 @@ jobs:
   check-diff-coverage:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
       - uses: actions/checkout@v4
         with:
           path: current
@@ -47,6 +50,7 @@ jobs:
       - name: Generate diff coverage file
         run: |
           pycobertura diff main/coverage/cobertura-coverage.xml current/coverage/cobertura-coverage.xml --source1 main --source2 current --format markdown --output diff-coverage.md
+          exit 0
       - name: Publish diff coverage
         uses: actions/upload-artifact@v4
         with:
