@@ -14,38 +14,87 @@ jobs:
   check-diff-coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Put main branch's files to temp folder without compressing
-        run: |
-          mkdir temp
-          git archive main | tar -x -C temp
-      - name: Download code coverage report
-        run: download-artifact@v4
+      - uses: actions/setup-node@v4
         with:
-          name: coverage
-      - name: Put main branch's code coverage report to temp folder
-        run: cp coverage/cobertura-coverage.xml temp/coverage/cobertura-coverage.xml
-
+          node-version: 20.x
+      - uses: actions/checkout@v4
+        with:
+          path: current
       - name: Install dependencies
         run: npm install
+        working-directory: current
       - name: Run tests
         run: npm run test
+        working-directory: current
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main
+      - name: Get the latest run_id of the main branch's code coverage
+        id: get_run_id
+        run: |
+          run_id=$(curl -s -H "Accept: application/vnd.github.v3+json" -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs?branch=main | jq -r '.workflow_runs[0].id')
+          echo run_id=$run_id >> $GITHUB_OUTPUT
+      - name: Download code coverage report from main branch
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          run-id: ${{ steps.get_run_id.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Put main branch's code coverage report to main folder
+        run: mkdir main/coverage && mv cobertura-coverage.xml main/coverage/cobertura-coverage.xml
 
       - name: Install pycobertura
         run: pip install pycobertura
       - name: Generate diff coverage file
         run: |
-          pycobertura diff temp/coverage/cobertura-coverage.xml coverage/cobertura-coverage.xml --source1 temp --source2 . --format markdown --output diff-coverage.md
+          pycobertura diff main/coverage/cobertura-coverage.xml current/coverage/cobertura-coverage.xml --source1 main --source2 current --format json --output diff-coverage.json || echo "exit code $?"
       - name: Publish diff coverage
         uses: actions/upload-artifact@v4
         with:
           name: diff-coverage
+          path: diff-coverage.json
+
+      # it looks like
+      # {
+      #     "files": [
+      #         {
+      #             "Filename": "index.js",
+      #             "Stmts": "+1",
+      #             "Miss": "+1",
+      #             "Cover": "-33.34%",
+      #             "Missing": "6"
+      #         }
+      #     ],
+      #     "total": {
+      #         "Filename": "TOTAL",
+      #         "Stmts": "+1",
+      #         "Miss": "+1",
+      #         "Cover": "-33.34%"
+      #     }
+      # }
+
+      # if stmts is less than or equal to 0, return ok
+      # if miss is less than or equal to 0, return ok
+      # the diff coverage should be (Stmts - Miss) / Stmts
       - name: Check diff coverage.
         run: |
-          diff_coverage=$(awk '/Overall coverage/ {print $3}' diff-coverage.md)
-          if (( $(echo "$diff_coverage < 80" | bc -l) )); then
-            echo "Diff coverage is less than 80%."
-            echo "Diff coverage: $diff_coverage"
-            echo "Check diff-coverage.md here: ${{ steps.publish-diff-coverage.outputs.artifact_url }}"
-            exit 1
+          cat diff-coverage.json
+          Stmt=$(jq -r '.total.Stmts' diff-coverage.json)
+          Miss=$(jq -r '.total.Miss' diff-coverage.json)
+          Stmt=$(echo $Stmt | sed 's/+//')
+          Miss=$(echo $Miss | sed 's/+//')
+
+          if [ "$Stmt" -le 0 ] || [ "$Miss" -le 0 ]; then
+            echo "ok"
+          else
+            DiffCoverage=$(echo "scale=2; ($Stmt - $Miss) / $Stmt" | bc)
+            if [ "$(echo "$DiffCoverage < 0.8" | bc)" -eq 1 ]; then
+              echo "Diff coverage is less than 80%."
+              echo "Current diff coverage is $DiffCoverage."
+              exit 1
+            else
+              echo "Diff coverage is greater than 80%."
+            fi
           fi
