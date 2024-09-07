@@ -55,11 +55,41 @@ jobs:
         with:
           name: diff-coverage
           path: diff-coverage.json
+
+      # it looks like
+      # {
+      #     "files": [
+      #         {
+      #             "Filename": "index.js",
+      #             "Stmts": "+1",
+      #             "Miss": "+1",
+      #             "Cover": "-33.34%",
+      #             "Missing": "6"
+      #         }
+      #     ],
+      #     "total": {
+      #         "Filename": "TOTAL",
+      #         "Stmts": "+1",
+      #         "Miss": "+1",
+      #         "Cover": "-33.34%"
+      #     }
+      # }
+
+      # if stmts is less than 0, return ok
+      # if miss is less than 0, return ok
+      # the diff coverage should be (Stmts - Miss) / Stmts
       - name: Check diff coverage.
         run: |
-          diff_coverage=$(cat diff-coverage.json | jq -r '.diff_coverage')
-          echo "diff coverage: $diff_coverage"
-          if [ $(echo "$diff_coverage < 80" | bc) -eq 1 ]; then
-            echo "diff coverage is less than 80%"
-            exit 1
+          Stmt=$(jq -r '.total.Stmts' diff-coverage.json)
+          Miss=$(jq -r '.total.Miss' diff-coverage.json)
+          if [ $Stmt -lt 0 ] || [ $Miss -lt 0 ]; then
+            echo "ok"
+          else
+            DiffCoverage=$(echo "scale=2; ($Stmt - $Miss) / $Stmt" | bc)
+            if [ $(echo "$DiffCoverage < 0.8" | bc) -eq 1 ]; then
+              echo "Diff coverage is less than 80%."
+              exit 1
+            else
+              echo "Diff coverage is greater than 80%."
+            fi
           fi
