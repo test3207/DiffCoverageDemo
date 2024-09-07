@@ -49,18 +49,17 @@ jobs:
         run: pip install pycobertura
       - name: Generate diff coverage file
         run: |
-          pycobertura diff main/coverage/cobertura-coverage.xml current/coverage/cobertura-coverage.xml --source1 main --source2 current --format markdown --output diff-coverage.md || echo "exit code $?"
+          pycobertura diff main/coverage/cobertura-coverage.xml current/coverage/cobertura-coverage.xml --source1 main --source2 current --format json --output diff-coverage.json || echo "exit code $?"
       - name: Publish diff coverage
         uses: actions/upload-artifact@v4
         with:
           name: diff-coverage
-          path: diff-coverage.md
+          path: diff-coverage.json
       - name: Check diff coverage.
         run: |
-          diff_coverage=$(awk '/Overall coverage/ {print $3}' diff-coverage.md)
-          if (( $(echo "$diff_coverage < 80" | bc -l) )); then
-            echo "Diff coverage is less than 80%."
-            echo "Diff coverage: $diff_coverage"
-            echo "Check diff-coverage.md here: ${{ steps.publish-diff-coverage.outputs.artifact_url }}"
+          diff_coverage=$(cat diff-coverage.json | jq -r '.diff_coverage')
+          echo "diff coverage: $diff_coverage"
+          if [ $(echo "$diff_coverage < 80" | bc) -eq 1 ]; then
+            echo "diff coverage is less than 80%"
             exit 1
           fi
