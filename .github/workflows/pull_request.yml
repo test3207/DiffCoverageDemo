@@ -46,7 +46,7 @@ jobs:
         run: mkdir main/coverage && mv cobertura-coverage.xml main/coverage/cobertura-coverage.xml
 
       - name: Install pycobertura
-        run: pip install
+        run: pip install pycobertura
       - name: Generate diff coverage file
         run: |
           pycobertura diff main/coverage/cobertura-coverage.xml current/coverage/cobertura-coverage.xml --source1 main --source2 current --format markdown --output diff-coverage.md || echo "exit code $?"
