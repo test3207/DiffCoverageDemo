@@ -75,8 +75,8 @@ jobs:
       #     }
       # }
 
-      # if stmts is less than 0, return ok
-      # if miss is less than 0, return ok
+      # if stmts is less than or equal to 0, return ok
+      # if miss is less than or equal to 0, return ok
       # the diff coverage should be (Stmts - Miss) / Stmts
       - name: Check diff coverage.
         run: |
@@ -86,7 +86,7 @@ jobs:
           Stmt=$(echo $Stmt | sed 's/+//')
           Miss=$(echo $Miss | sed 's/+//')
 
-          if [ "$Stmt" -lt 0 ] || [ "$Miss" -lt 0 ]; then
+          if [ "$Stmt" -le 0 ] || [ "$Miss" -le 0 ]; then
             echo "ok"
           else
             DiffCoverage=$(echo "scale=2; ($Stmt - $Miss) / $Stmt" | bc)
