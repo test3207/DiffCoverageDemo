@@ -49,8 +49,7 @@ jobs:
         run: pip install pycobertura
       - name: Generate diff coverage file
         run: |
-          pycobertura diff main/coverage/cobertura-coverage.xml current/coverage/cobertura-coverage.xml --source1 main --source2 current --format markdown --output diff-coverage.md
-          exit 0
+          pycobertura diff main/coverage/cobertura-coverage.xml current/coverage/cobertura-coverage.xml --source1 main --source2 current --format markdown --output diff-coverage.md && exit 0
       - name: Publish diff coverage
         uses: actions/upload-artifact@v4
         with:
