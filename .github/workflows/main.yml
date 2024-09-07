@@ -1,0 +1,22 @@
+# Generate code coverage once there are code changes on the main branch, and publish the results as an artifact.
+
+name: Generate code coverage
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  check-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: npm install
+      - name: Run tests
+        run: npm run test
+      - name: Publish code coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/cobertura-coverage.xml

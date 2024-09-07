@@ -1,0 +1,51 @@
+# when create a pull request, this workflow will run the unit test,
+# download the code coverage report from the main branch's artifact,
+# and compare the diff coverage between the current branch and the main branch with current branch's files and main branch's files.
+# using pycobertura (https://github.com/aconrad/pycobertura) to compare the diff coverage.
+# If the diff coverage is less than 80%, the workflow will fail.
+
+name: Check diff coverage
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-diff-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Put main branch's files to temp folder without compressing
+        run: |
+          mkdir temp
+          git archive main | tar -x -C temp
+      - name: Download code coverage report
+        run: download-artifact@v4
+        with:
+          name: coverage
+      - name: Put main branch's code coverage report to temp folder
+        run: cp coverage/cobertura-coverage.xml temp/coverage/cobertura-coverage.xml
+
+      - name: Install dependencies
+        run: npm install
+      - name: Run tests
+        run: npm run test
+
+      - name: Install pycobertura
+        run: pip install pycobertura
+      - name: Generate diff coverage file
+        run: |
+          pycobertura diff temp/coverage/cobertura-coverage.xml coverage/cobertura-coverage.xml --source1 temp --source2 . --format markdown --output diff-coverage.md
+      - name: Publish diff coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: diff-coverage
+      - name: Check diff coverage.
+        run: |
+          diff_coverage=$(awk '/Overall coverage/ {print $3}' diff-coverage.md)
+          if (( $(echo "$diff_coverage < 80" | bc -l) )); then
+            echo "Diff coverage is less than 80%."
+            echo "Diff coverage: $diff_coverage"
+            echo "Check diff-coverage.md here: ${{ steps.publish-diff-coverage.outputs.artifact_url }}"
+            exit 1
+          fi
