@@ -80,6 +80,7 @@ jobs:
       # the diff coverage should be (Stmts - Miss) / Stmts
       - name: Check diff coverage.
         run: |
+          cat diff-coverage.json
           Stmt=$(jq -r '.total.Stmts' diff-coverage.json)
           Miss=$(jq -r '.total.Miss' diff-coverage.json)
           Stmt=$(echo $Stmt | sed 's/+//')
