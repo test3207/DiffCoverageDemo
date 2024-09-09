@@ -1,44 +1,88 @@
 # run unit test, download code coverage report from main branch's artifact, and compare the diff coverage
 # using pycobertura (https://github.com/aconrad/pycobertura)
 
-trigger:
-  - pull_request
-
 pool:
   vmImage: ubuntu-latest
 
+resources:
+  repositories:
+    - repository: main
+      name: DiffCoverageDemo
+      ref: refs/heads/main
+      type: git
+
 steps:
+  - task: UseNode@1
+    inputs:
+      version: "20.x"
+
+  - checkout: self
+    path: current
+    displayName: "checkout current branch"
   - script: npm install
     displayName: "install dependencies"
+    workingDirectory: $(Pipeline.Workspace)/current
   - script: npm run test
     displayName: "run tests"
-  - checkout: self
+    workingDirectory: $(Pipeline.Workspace)/current
+
   - checkout: main
-  - task: DownloadBuildArtifacts@0
+    path: main
+    displayName: "checkout main branch"
+  - task: DownloadBuildArtifacts@1
     inputs:
       buildType: "specific"
       project: "$(System.TeamProjectId)"
-      pipeline: "main"
+      pipeline: 1
       buildVersionToDownload: "latest"
       downloadType: "single"
       artifactName: "coverage"
-      targetPath: "$(Pipeline.Workspace)/main"
+      downloadPath: "$(Pipeline.Workspace)/main"
+
+  - script: pip install pycobertura
+    displayName: "install pycobertura"
   - script: |
-      pip install pycobertura
-      pycobertura diff-coverage \
-        --base coverage/cobertura-coverage.xml \
-        --head main/coverage/cobertura-coverage.xml
-    displayName: "compare diff coverage"
-  # check overall diff coverage, fail if diff coverage is less than 80%
+      pycobertura diff $(Pipeline.Workspace)/main/coverage/cobertura-coverage.xml $(Pipeline.Workspace)/current/coverage/cobertura-coverage.xml --source1 $(Pipeline.Workspace)/main --source2 $(Pipeline.Workspace)/current --format json --output $(Pipeline.Workspace)/diff-coverage.json || echo "exit code $?"
+    displayName: "generate diff coverage file"
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: "$(Pipeline.Workspace)/diff-coverage.json"
+      artifact: "diff-coverage"
+
+  # check diff coverage
+  # it looks like
+  # {
+  #     "files": [
+  #         {
+  #             "Filename": "index.js",
+  #             "Stmts": "+1",
+  #             "Miss": "+1",
+  #             "Cover": "-33.34%",
+  #             "Missing": "6"
+  #         }
+  #     ],
+  #     "total": {
+  #         "Filename": "TOTAL",
+  #         "Stmts": "+1",
+  #         "Miss": "+1",
+  #         "Cover": "-33.34%"
+  #     }
+  # }
+  # get total stmts and miss
+  # if stmts/miss le 0, return ok
+  # else diff coverage = 1 - miss/stmts
+  # if diff coverage < 0.8, return fail
   - script: |
-      diff_coverage_string=$(pycobertura diff-coverage \
-        --base coverage/cobertura-coverage.xml \
-        --head main/coverage/cobertura-coverage.xml \
-        --format text)
-      echo "$diff_coverage_string"
-      diff_coverage=$(echo "$diff_coverage_string" | grep "Overall diff coverage" | awk '{print $4}' | sed 's/%//')
-      if [ "$diff_coverage" -lt 80 ]; then
-        echo "Diff coverage is less than 80%, failing the build"
-        exit 1
+      diff_coverage=$(jq -r '.total' $(Pipeline.Workspace)/diff-coverage.json | jq -r '.Stmts' | sed 's/+//')
+      diff_miss=$(jq -r '.total' $(Pipeline.Workspace)/diff-coverage.json | jq -r '.Miss' | sed 's/+//')
+      if [ $diff_coverage -le 0 ]; then
+          echo "diff coverage is 100"
+          exit 0
       fi
+      diff_coverage=$(echo "1 - $diff_miss / $diff_coverage" | bc -l)
+      if [ $(echo "$diff_coverage < 0.8" | bc -l) -eq 1 ]; then
+          echo "diff coverage is $diff_coverage"
+          exit 1
+      fi
+      echo "diff coverage is $diff_coverage"
     displayName: "check diff coverage"
